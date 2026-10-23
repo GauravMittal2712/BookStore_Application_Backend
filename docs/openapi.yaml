@@ -1,0 +1,875 @@
+openapi: 3.0.3
+info:
+  title: Bookstore API
+  description: |
+    MERN modular monolith backend. JWT access token + rotating refresh cookie.
+    Money is integer minor units (paise) with currency code INR.
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: Relative to the host (local default http://localhost:5000)
+tags:
+  - name: Auth
+  - name: Users
+  - name: Addresses
+  - name: Books
+  - name: Inventory
+  - name: Cart
+  - name: Orders
+  - name: Wishlist
+  - name: Reviews
+  - name: Health
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: refreshToken
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data: {}
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+    ErrorEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  path:
+                    type: string
+                  message:
+                    type: string
+            requestId:
+              type: string
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        mobile:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [admin, customer, helper]
+        createdAt:
+          type: string
+          format: date-time
+    Book:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        price:
+          type: integer
+        originalPrice:
+          type: integer
+          nullable: true
+        stock:
+          type: integer
+        category:
+          type: string
+        avgRating:
+          type: number
+        ratingCount:
+          type: integer
+    Cart:
+      type: object
+      properties:
+        id:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              quantity:
+                type: integer
+              lineTotal:
+                type: integer
+        totalItems:
+          type: integer
+        subtotal:
+          type: integer
+        currency:
+          type: string
+          example: INR
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a customer account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                mobile: { type: string }
+      responses:
+        '201':
+          description: Created and signed in
+        '409':
+          description: EMAIL_TAKEN
+        '422':
+          description: Validation error
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: INVALID_CREDENTIALS
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token
+      security:
+        - refreshCookie: []
+      responses:
+        '200':
+          description: New access token
+        '401':
+          description: Invalid or expired refresh token
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Logged out
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+      responses:
+        '204':
+          description: Password changed
+
+  /users:
+    get:
+      tags: [Users]
+      summary: List users (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: role
+          schema: { type: string, enum: [admin, customer, helper] }
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Paginated users
+    post:
+      tags: [Users]
+      summary: Create user (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role]
+              properties:
+                name: { type: string }
+                email: { type: string }
+                password: { type: string }
+                role: { type: string, enum: [admin, customer, helper] }
+                mobile: { type: string }
+      responses:
+        '201':
+          description: Created
+
+  /users/{userId}:
+    get:
+      tags: [Users]
+      summary: Get one user (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User
+    put:
+      tags: [Users]
+      summary: Update user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                email: { type: string }
+                role: { type: string, enum: [admin, customer, helper] }
+                mobile: { type: string }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Users]
+      summary: Soft-delete user (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
+
+  /addresses:
+    get:
+      tags: [Addresses]
+      summary: List own addresses
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Address list
+    post:
+      tags: [Addresses]
+      summary: Create address
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [street, city, state, zipCode]
+              properties:
+                street: { type: string }
+                city: { type: string }
+                state: { type: string }
+                zipCode: { type: string }
+                type: { type: string, enum: [home, work, other] }
+                isDefault: { type: boolean }
+      responses:
+        '201':
+          description: Created
+
+  /addresses/{addressId}:
+    put:
+      tags: [Addresses]
+      summary: Update address
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: addressId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Addresses]
+      summary: Delete address
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: addressId
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
+
+  /addresses/{addressId}/default:
+    patch:
+      tags: [Addresses]
+      summary: Set default shipping address
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: addressId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated
+
+  /books:
+    get:
+      tags: [Books]
+      summary: List/search books (public)
+      security: []
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: author
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: minPrice
+          schema: { type: integer }
+        - in: query
+          name: maxPrice
+          schema: { type: integer }
+        - in: query
+          name: inStock
+          schema: { type: boolean }
+        - in: query
+          name: sort
+          schema: { type: string, example: '-createdAt' }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Paginated books
+    post:
+      tags: [Books]
+      summary: Create book (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, author, price]
+              properties:
+                title: { type: string }
+                author: { type: string }
+                price: { type: integer }
+                originalPrice: { type: integer }
+                stock: { type: integer }
+                category: { type: string }
+                isbn: { type: string }
+                description: { type: string }
+                coverImageUrl: { type: string }
+                publicationYear: { type: integer }
+      responses:
+        '201':
+          description: Created
+
+  /books/{bookId}:
+    get:
+      tags: [Books]
+      summary: Book detail (public)
+      security: []
+      parameters:
+        - in: path
+          name: bookId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Book
+        '404':
+          description: Not found
+    put:
+      tags: [Books]
+      summary: Update book (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: bookId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Books]
+      summary: Soft-delete book (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: bookId
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
+
+  /inventory:
+    get:
+      tags: [Inventory]
+      summary: Stock levels (admin, helper)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: lowStock
+          schema: { type: integer, default: 5 }
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: limit
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Inventory list
+
+  /inventory/{bookId}:
+    put:
+      tags: [Inventory]
+      summary: Set stock or adjust by delta
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: bookId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stock: { type: integer, minimum: 0 }
+                adjustBy: { type: integer }
+                reason:
+                  type: string
+                  enum: [manual, order, cancel, restock, correction]
+      responses:
+        '200':
+          description: Updated stock
+        '409':
+          description: NEGATIVE_STOCK
+
+  /cart:
+    get:
+      tags: [Cart]
+      summary: Current cart
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cart
+    delete:
+      tags: [Cart]
+      summary: Clear cart
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Cleared
+
+  /cart/items:
+    post:
+      tags: [Cart]
+      summary: Add item
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookId]
+              properties:
+                bookId: { type: string }
+                quantity: { type: integer, minimum: 1, maximum: 20, default: 1 }
+      responses:
+        '201':
+          description: Updated cart
+        '409':
+          description: INSUFFICIENT_STOCK
+
+  /cart/items/{itemId}:
+    put:
+      tags: [Cart]
+      summary: Set item quantity
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity: { type: integer, minimum: 1, maximum: 20 }
+      responses:
+        '200':
+          description: Updated cart
+    delete:
+      tags: [Cart]
+      summary: Remove item
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated cart
+
+  /orders:
+    get:
+      tags: [Orders]
+      summary: List orders
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, processing, shipped, delivered, cancelled]
+        - in: query
+          name: userId
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: limit
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Paginated orders
+    post:
+      tags: [Orders]
+      summary: Place order from cart
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string, maxLength: 100 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [addressId]
+              properties:
+                addressId: { type: string }
+      responses:
+        '201':
+          description: Order created
+        '200':
+          description: Idempotent replay
+        '400':
+          description: Empty cart or precondition failed
+
+  /orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Get order
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Order
+        '404':
+          description: Not found
+
+  /orders/{orderId}/status:
+    patch:
+      tags: [Orders]
+      summary: Change order status (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [processing, shipped, delivered, cancelled]
+      responses:
+        '200':
+          description: Updated
+        '409':
+          description: Invalid status transition
+
+  /orders/{orderId}/cancel:
+    patch:
+      tags: [Orders]
+      summary: Cancel order
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Cancelled
+
+  /wishlist:
+    get:
+      tags: [Wishlist]
+      summary: List wishlist
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Wishlist items
+    post:
+      tags: [Wishlist]
+      summary: Add book to wishlist
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookId]
+              properties:
+                bookId: { type: string }
+      responses:
+        '201':
+          description: Added
+        '409':
+          description: ALREADY_IN_WISHLIST
+
+  /wishlist/{bookId}:
+    delete:
+      tags: [Wishlist]
+      summary: Remove from wishlist
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: bookId
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Removed
+
+  /reviews:
+    get:
+      tags: [Reviews]
+      summary: List reviews
+      security: []
+      parameters:
+        - in: query
+          name: bookId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: limit
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Paginated reviews
+    post:
+      tags: [Reviews]
+      summary: Create review (verified purchase)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookId, rating]
+              properties:
+                bookId: { type: string }
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string, maxLength: 2000 }
+      responses:
+        '201':
+          description: Created
+        '409':
+          description: Duplicate or not verified
+
+  /reviews/{reviewId}:
+    put:
+      tags: [Reviews]
+      summary: Update own review
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: reviewId
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Reviews]
+      summary: Delete own review
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: reviewId
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted

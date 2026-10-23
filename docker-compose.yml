@@ -1,0 +1,79 @@
+# Usage:
+#   cp .env.example .env
+#   docker compose up -d mongo redis rabbitmq   # infra only (run the API yourself with `npm run dev`)
+#   docker compose up --build                   # infra + API + worker in containers
+#
+# RabbitMQ UI: http://localhost:15672  (login: RABBITMQ_USER / RABBITMQ_PASS from .env)
+services:
+  mongo:
+    image: mongo:7
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports: ["27017:27017"]
+    volumes: ["mongo_data:/data/db"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }"]
+      interval: 10s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    # volatile-lru only evicts keys that have a TTL, so the cache-version counters are never evicted
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "volatile-lru"]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-bookstore}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-bookstore}
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # management UI
+    volumes: ["rabbitmq_data:/var/lib/rabbitmq"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  api:
+    build: .
+    env_file: ./.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/bookstore?replicaSet=rs0
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-bookstore}:${RABBITMQ_PASS:-bookstore}@rabbitmq:5672
+      ENABLE_CONSUMERS: "false"   # the worker below consumes; the API only publishes
+    ports: ["5000:5000"]
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  worker:
+    build: .
+    command: ["node", "src/worker.js"]
+    env_file: ./.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/bookstore?replicaSet=rs0
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-bookstore}:${RABBITMQ_PASS:-bookstore}@rabbitmq:5672
+      ENABLE_CONSUMERS: "true"
+    healthcheck:
+      disable: true   # the image's HTTP healthcheck does not apply: the worker has no web server
+    restart: unless-stopped
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+volumes:
+  mongo_data:
+  rabbitmq_data:
