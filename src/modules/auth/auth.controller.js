@@ -43,6 +43,15 @@ export const login = asyncHandler(async (req, res) => {
   });
 });
 
+export const google = asyncHandler(async (req, res) => {
+  const result = await authService.loginWithGoogle(req.valid.body, meta(req));
+  setRefreshCookie(res, result.refreshToken);
+  res.json({
+    success: true,
+    data: { user: result.user, accessToken: result.accessToken },
+  });
+});
+
 export const refresh = asyncHandler(async (req, res) => {
   const raw = req.cookies?.refreshToken;
   if (!raw) {
@@ -62,7 +71,7 @@ export const refresh = asyncHandler(async (req, res) => {
 export const logout = asyncHandler(async (req, res) => {
   await authService.logout(req.cookies?.refreshToken);
   clearRefreshCookie(res);
-  res.status(204).end();
+  res.status(204).send();
 });
 
 export const me = asyncHandler(async (req, res) => {
@@ -73,5 +82,18 @@ export const me = asyncHandler(async (req, res) => {
 export const changePassword = asyncHandler(async (req, res) => {
   await authService.changePassword(req.user.id, req.valid.body);
   clearRefreshCookie(res);
-  res.status(204).end();
+  res.json({ success: true, data: { message: 'Password updated. Please log in again.' } });
+});
+
+export const forgotPassword = asyncHandler(async (req, res) => {
+  await authService.forgotPassword(req.valid.body.email);
+  res.json({
+    success: true,
+    data: { message: 'If that email exists, a reset link has been sent.' },
+  });
+});
+
+export const resetPassword = asyncHandler(async (req, res) => {
+  await authService.resetPassword(req.valid.body);
+  res.json({ success: true, data: { message: 'Password updated. You can log in now.' } });
 });

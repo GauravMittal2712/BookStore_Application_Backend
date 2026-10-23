@@ -15,7 +15,9 @@ const userSchema = new mongoose.Schema(
       unique: true,
     },
     mobile: { type: String, trim: true, maxlength: 20 },
-    passwordHash: { type: String, required: true, select: false },
+    // Optional for Google-only accounts
+    passwordHash: { type: String, required: false, select: false },
+    googleId: { type: String, sparse: true, unique: true, index: true },
     role: { type: String, enum: ROLES, default: 'customer', index: true },
     isDeleted: { type: Boolean, default: false },
   },
