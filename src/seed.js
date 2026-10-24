@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 import { env } from './config/env.js';
 import { User } from './modules/users/user.model.js';
 import { Book } from './modules/books/book.model.js';
+import { extraBooks, coverUrl } from './data/books.js';
 
 if (env.NODE_ENV === 'production' && !process.argv.includes('--force')) {
   console.error('Refusing to seed with NODE_ENV=production. Re-run with --force if you really mean it.');
@@ -41,10 +42,25 @@ const books = [
   { title: 'React Material-UI', author: 'Adam Boduch', price: 78000, originalPrice: 90000, stock: 9, category: 'Technology', isbn: '9781789344615', publicationYear: 2019, description: 'Cookbook of recipes for building React apps with Material-UI.' },
   { title: 'UX For DUMMIES', author: 'Donald Chesnut', price: 150000, originalPrice: 200000, stock: 0, category: 'Design', isbn: '9781118914717', publicationYear: 2015, description: 'An out-of-stock sample title.' },
 ];
-for (const { isbn, ...rest } of books) {
-  const res = await Book.updateOne({ isbn }, { $setOnInsert: rest }, { upsert: true });
-  console.log(`  ${res.upsertedCount ? 'created' : 'exists '} book ${isbn}`);
+
+const catalogue = [...books, ...extraBooks];
+let created = 0;
+let covered = 0;
+for (const { isbn, ...rest } of catalogue) {
+  const res = await Book.updateOne(
+    { isbn },
+    { $setOnInsert: { ...rest, coverImageUrl: rest.coverImageUrl || coverUrl(isbn) } },
+    { upsert: true }
+  );
+  if (res.upsertedCount) created += 1;
+  // Books that already exist (e.g. from an earlier seed) get a cover only if they have none.
+  const fix = await Book.updateOne(
+    { isbn, $or: [{ coverImageUrl: { $exists: false } }, { coverImageUrl: null }, { coverImageUrl: '' }] },
+    { $set: { coverImageUrl: coverUrl(isbn) } }
+  );
+  covered += fix.modifiedCount;
 }
+console.log(`  books: ${created} created, ${catalogue.length - created} already existed, ${covered} cover(s) added to existing books`);
 
 console.log('\nLogins:');
 console.log('  admin    admin@bookstore.local  / Admin123!');

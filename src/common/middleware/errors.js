@@ -1,4 +1,5 @@
 import { AppError } from '../errors/AppError.js';
+import { env } from '../../config/env.js';
 
 export const notFound = (req, _res, next) =>
   next(new AppError(404, 'NOT_FOUND', `Route ${req.method} ${req.path} not found`));
@@ -36,7 +37,13 @@ export function errorHandler(err, req, res, next) {
     message = 'Resource already exists';
   }
 
-  if (status >= 500) req.log?.error({ err }, 'unhandled error');
+  if (status >= 500) {
+    req.log?.error({ err }, 'unhandled error');
+    // Development only: show the real reason in the browser so problems are easy to diagnose.
+    if (env.NODE_ENV !== 'production' && !(err instanceof AppError)) {
+      message = `Something went wrong (dev): ${err?.message || err}`;
+    }
+  }
 
   res.status(status).json({
     success: false,
