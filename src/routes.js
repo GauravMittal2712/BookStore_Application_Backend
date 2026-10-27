@@ -11,6 +11,7 @@ import cartRoutes from './modules/cart/cart.routes.js';
 import orderRoutes from './modules/orders/order.routes.js';
 import wishlistRoutes from './modules/wishlist/wishlist.routes.js';
 import reviewRoutes from './modules/reviews/review.routes.js';
+import paymentRoutes from './modules/payments/payment.routes.js';
 
 const r = Router();
 
@@ -23,5 +24,6 @@ r.use('/cart', authenticate, authorize('customer'), cartRoutes);
 r.use('/orders', authenticate, orderRoutes);
 r.use('/wishlist', authenticate, authorize('customer'), wishlistRoutes);
 r.use('/reviews', reviewRoutes);
+r.use('/payments', authenticate, paymentRoutes);
 
 export default r;

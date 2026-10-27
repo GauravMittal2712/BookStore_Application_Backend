@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { jsonTransform } from '../../common/mongoosePlugins.js';
 
+export const PAYMENT_METHODS = ['cod', 'online'];
+export const PAYMENT_STATUSES = ['unpaid', 'paid', 'failed', 'refunded', 'refund_failed'];
 export const ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 
 const orderItemSchema = new mongoose.Schema(
@@ -42,6 +44,14 @@ const orderSchema = new mongoose.Schema(
         _id: false,
       },
     ],
+    paymentMethod: { type: String, enum: PAYMENT_METHODS, default: 'cod' },
+    paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: 'unpaid' },
+    payment: {
+      razorpayOrderId: { type: String, index: true, sparse: true },
+      razorpayPaymentId: String,
+      paidAt: Date,
+      refundId: String,
+    },
     idempotencyKey: { type: String },
   },
   { timestamps: true }

@@ -21,6 +21,7 @@ import { requestId } from './common/middleware/requestId.js';
 import { apiLimiter } from './common/middleware/rateLimit.js';
 import { notFound, errorHandler } from './common/middleware/errors.js';
 import routes from './routes.js';
+import { webhook as paymentWebhook } from './modules/payments/payment.controller.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const openApiDoc = YAML.parse(
@@ -48,6 +49,10 @@ export function createApp() {
   );
   app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
   app.use(compression());
+
+  app.post('/api/v1/payments/webhook', express.raw({ type: 'application/json', limit: '100kb' }), paymentWebhook);
+  app.use(express.json({ limit: '10kb' }));
+
   app.use(express.json({ limit: '10kb' }));
   app.use(cookieParser());
   app.use(mongoSanitize());

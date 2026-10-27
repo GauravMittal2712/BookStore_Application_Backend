@@ -7,6 +7,7 @@ import * as cartService from '../cart/cart.service.js';
 import * as addressService from '../addresses/address.service.js';
 import * as inventoryService from '../inventory/inventory.service.js';
 import { invalidateBooks } from '../books/book.cache.js';
+import { refundIfPaid } from '../payments/payment.service.js';
 
 function toOrder(doc) {
   if (!doc) return null;
@@ -22,6 +23,8 @@ function toOrder(doc) {
     shippingAddress: doc.shippingAddress,
     totalAmount: doc.totalAmount,
     currency: doc.currency || 'INR',
+    paymentMethod: doc.paymentMethod || 'cod',
+    paymentStatus: doc.paymentStatus || 'unpaid',
     statusHistory: (doc.statusHistory || []).map((h) => ({
       status: h.status,
       changedBy: h.changedBy?.toString?.() || h.changedBy,
@@ -32,7 +35,7 @@ function toOrder(doc) {
   };
 }
 
-export async function placeOrder(userId, { addressId }, idempotencyKey) {
+export async function placeOrder(userId, { addressId, paymentMethod = 'cod' }, idempotencyKey) {
   const replay = async () => {
     const existing = await Order.findOne({ user: userId, idempotencyKey });
     return existing ? { order: toOrder(existing.toObject()), replayed: true } : null;
@@ -70,6 +73,8 @@ export async function placeOrder(userId, { addressId }, idempotencyKey) {
             items,
             totalAmount,
             currency: 'INR',
+            paymentMethod,
+            paymentStatus: 'unpaid',
             idempotencyKey: idempotencyKey || undefined,
             shippingAddress: {
               street: address.street,
@@ -156,6 +161,15 @@ export async function changeStatus(orderId, to, actor) {
 
       assertTransition(order.status, to, actor.role, isOwner);
 
+      // online orders can't be fulfilled until the money has arrived
+      if (
+        order.paymentMethod === 'online' &&
+        order.paymentStatus !== 'paid' &&
+        ['processing', 'shipped', 'delivered'].includes(to)
+      ) {
+        throw new AppError(409, 'PAYMENT_PENDING', 'This order has not been paid yet');
+      }
+
       if (to === 'cancelled') {
         await inventoryService.restock(order.items, session, actor.id);
       }
@@ -168,7 +182,10 @@ export async function changeStatus(orderId, to, actor) {
     await session.endSession();
   }
 
-  if (to === 'cancelled') await invalidateBooks(order.items.map((i) => i.book.toString())); // stock restored
+  if (to === 'cancelled') {
+    await invalidateBooks(order.items.map((i) => i.book.toString())); // stock restored
+    await refundIfPaid(order._id); // no-op for COD / unpaid orders
+  }
   events.emit(to === 'cancelled' ? 'order.cancelled' : 'order.status_changed', {
     orderId: order.id || order._id.toString(),
     userId: order.user.toString(),

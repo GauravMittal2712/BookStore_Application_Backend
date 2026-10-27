@@ -3,7 +3,9 @@ import { z } from 'zod';
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
 
 export const placeOrderSchema = z.object({
-  body: z.object({ addressId: objectId }).strict(),
+  body: z
+    .object({ addressId: objectId, paymentMethod: z.enum(['cod', 'online']).default('cod') })
+    .strict(),
 });
 
 export const listOrdersSchema = z.object({
