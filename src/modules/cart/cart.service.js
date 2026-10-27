@@ -59,9 +59,6 @@ export async function getCart(userId) {
   const cart = await Cart.findOne({ user: userId });
   return buildCartResponse(cart);
 }
-
-// Concurrent requests on the same cart (double click, two tabs) can collide: either on the unique
-// cart-per-user index (first add) or on Mongoose's array version check. Retry makes both invisible.
 async function withRetry(fn, attempts = 4) {
   for (let i = 0; ; i++) {
     try {

@@ -21,8 +21,6 @@ export function cachedDetail(bookId, loader) {
   return cacheRemember(detailKey(bookId), TTL, loader);
 }
 
-// Call AFTER the database write has committed. Bumping the list version orphans every cached
-// list page at once (they expire on their own via TTL); detail keys are deleted directly.
 export async function invalidateBooks(bookIds = []) {
   await cacheDel(...bookIds.map((id) => detailKey(String(id))));
   await bumpVersion(LIST_VERSION_KEY);

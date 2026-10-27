@@ -34,9 +34,7 @@ export const authLimiter = rateLimit({
   },
 });
 
-/**
- * POST /orders — 20 placements per hour per authenticated user.
- */
+
 export const orderLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 20,

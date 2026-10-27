@@ -15,7 +15,7 @@ import paymentRoutes from './modules/payments/payment.routes.js';
 
 const r = Router();
 
-r.use('/auth', authRoutes); // limiter is applied per route inside auth.routes.js
+r.use('/auth', authRoutes);
 r.use('/users', authenticate, userRoutes);
 r.use('/addresses', authenticate, authorize('customer'), addressRoutes);
 r.use('/books', bookRoutes);

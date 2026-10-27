@@ -8,7 +8,7 @@ export const place = asyncHandler(async (req, res) => {
     throw new AppError(422, 'VALIDATION_ERROR', 'Idempotency-Key is too long (max 100 characters)');
   }
   const { order, replayed } = await orderService.placeOrder(req.user.id, req.valid.body, idempotencyKey);
-  // 201 for a new order, 200 when an Idempotency-Key replays an existing one
+
   res.status(replayed ? 200 : 201).json({ success: true, data: order });
 });
 

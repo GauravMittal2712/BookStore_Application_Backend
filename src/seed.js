@@ -1,8 +1,4 @@
-/**
- * Seed script - safe to run repeatedly (it never deletes anything).
- * Creates an admin, a helper and a customer if missing, and sample books (matched by ISBN).
- * Run: npm run seed        (refuses to run with NODE_ENV=production unless you add --force)
- */
+
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import { env } from './config/env.js';

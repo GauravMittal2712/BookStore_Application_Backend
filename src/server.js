@@ -23,10 +23,7 @@ try {
   /* ignore */
 }
 
-await connectRedis(); // optional: logs and continues if Redis is unreachable
-
-// In-process events (no RabbitMQ) need handlers here. With RabbitMQ, handlers only run in a
-// process that consumes: this one if ENABLE_CONSUMERS=true, otherwise the `worker`.
+await connectRedis(); 
 const consume = !events.usesBroker || env.ENABLE_CONSUMERS;
 if (consume) registerSubscribers();
 try {

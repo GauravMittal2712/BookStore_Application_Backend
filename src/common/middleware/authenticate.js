@@ -19,7 +19,6 @@ export function authenticate(req, _res, next) {
   }
 }
 
-/** Optional auth – attaches user if token present, otherwise continues */
 export function optionalAuth(req, _res, next) {
   const [scheme, token] = (req.headers.authorization || '').split(' ');
   if (scheme === 'Bearer' && token) {
@@ -30,7 +29,7 @@ export function optionalAuth(req, _res, next) {
       });
       req.user = { id: payload.sub, role: payload.role };
     } catch {
-      /* ignore */
+     
     }
   }
   next();

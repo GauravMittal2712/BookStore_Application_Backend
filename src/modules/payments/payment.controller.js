@@ -11,7 +11,6 @@ export const verify = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { orderId: order.id, paymentStatus: order.paymentStatus } });
 });
 
-// Mounted in app.js BEFORE express.json(): req.body is the raw Buffer here.
 export const webhook = asyncHandler(async (req, res) => {
   await paymentService.handleWebhook(req.body, req.headers['x-razorpay-signature']);
   res.json({ received: true });

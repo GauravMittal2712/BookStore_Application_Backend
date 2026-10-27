@@ -4,15 +4,15 @@ import { logger } from '../logger.js';
 import { redis, redisReady } from '../redis/redis.js';
 import { EVENT_NAMES } from './eventNames.js';
 
-const EXCHANGE = 'bookstore.events'; // topic exchange: producers publish here
-const QUEUE = 'bookstore.notifications'; // work queue
-const RETRY_QUEUE = `${QUEUE}.retry`; // holds failed messages, then dead-letters them back to QUEUE
-const DEAD_QUEUE = `${QUEUE}.dead`; // gave up after EVENT_MAX_RETRIES - inspect / replay manually
+const EXCHANGE = 'bookstore.events';
+const QUEUE = 'bookstore.notifications'; 
+const RETRY_QUEUE = `${QUEUE}.retry`; 
+const DEAD_QUEUE = `${QUEUE}.dead`; 
 
-const handlers = new Map(); // event name -> [async fn]
+const handlers = new Map(); 
 
 let connection = null;
-let pubChannel = null; // confirm channel: publish() resolves only after the broker has the message
+let pubChannel = null;
 let conChannel = null;
 let consuming = false;
 let stopping = false;
@@ -30,8 +30,7 @@ export const isConnected = () => !!connection && !!pubChannel;
 async function assertTopology(ch) {
   await ch.assertExchange(EXCHANGE, 'topic', { durable: true });
   await ch.assertQueue(DEAD_QUEUE, { durable: true });
-  // Messages sit here for `expiration` ms, then RabbitMQ routes them (via the default exchange)
-  // straight back into QUEUE.
+ 
   await ch.assertQueue(RETRY_QUEUE, {
     durable: true,
     arguments: { 'x-dead-letter-exchange': '', 'x-dead-letter-routing-key': QUEUE },
@@ -81,7 +80,6 @@ function scheduleReconnect(attempt = 1) {
   }, Math.min(attempt * 1000, 10000));
 }
 
-// Called once at startup. Retries for ~20s (RabbitMQ is slow to boot in Docker), then throws.
 export async function start({ consume }) {
   stopping = false;
   consuming = consume;
@@ -108,7 +106,7 @@ export async function stop() {
     await pubChannel?.close();
     await connection?.close();
   } catch {
-    /* already closed */
+    
   }
   connection = pubChannel = conChannel = null;
 }
@@ -131,7 +129,7 @@ export async function publishEvent(name, evt) {
   });
 }
 
-// ---------- consumer ----------
+
 
 async function startConsumer() {
   conChannel = await connection.createChannel();
@@ -141,7 +139,6 @@ async function startConsumer() {
   logger.info({ events: [...handlers.keys()] }, 'RabbitMQ consumer started');
 }
 
-// Redis makes redelivery safe: a handler that already succeeded for this event is not run again.
 const doneKey = (eventId, name, i) => `evt:done:${eventId}:${name}:${i}`;
 
 async function runHandlers(name, evt) {
@@ -155,7 +152,7 @@ async function runHandlers(name, evt) {
 }
 
 async function onMessage(msg) {
-  if (!msg) return; // consumer cancelled by the broker
+  if (!msg) return; 
   const ch = conChannel;
   const name = msg.properties.type || msg.fields.routingKey;
   const retries = Number(msg.properties.headers?.['x-retry-count'] || 0);
@@ -185,7 +182,7 @@ async function onMessage(msg) {
           headers: { 'x-retry-count': retries, 'x-last-error': String(err.message).slice(0, 500) },
         });
       }
-      ch.ack(msg); // only after the retry/dead copy is safely stored
+      ch.ack(msg);
     } catch (publishErr) {
       logger.error({ err: publishErr, ...meta }, 'could not re-queue failed event; requeueing original');
       ch.nack(msg, false, true);

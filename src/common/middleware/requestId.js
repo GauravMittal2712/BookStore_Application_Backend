@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 
-// Accept a client-supplied id only if it is short and harmless (prevents log injection).
 const SAFE_ID = /^[A-Za-z0-9-]{8,64}$/;
 
 export function requestId(req, res, next) {

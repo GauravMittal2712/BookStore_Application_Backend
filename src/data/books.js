@@ -1,6 +1,4 @@
-// Extra catalogue for the seed script.
-// Row format: [title, author, category, isbn13, year, price (INR), original price (INR), stock, description]
-// Prices are converted to paise (x100) because the API stores money in the smallest currency unit.
+
 const ROWS = [
   ['Clean Code', 'Robert C. Martin', 'Technology', '9780132350884', 2008, 449, 580, 19, 'A handbook of agile software craftsmanship and writing readable code.'],
   ['Refactoring', 'Martin Fowler', 'Technology', '9780134757599', 2018, 599, 770, 19, 'Improving the design of existing code, with a catalogue of refactorings.'],
@@ -96,8 +94,6 @@ const ROWS = [
   ['Wings of Fire', 'A. P. J. Abdul Kalam, Arun Tiwari', 'Biography', '9788173711466', 1999, 299, 390, 33, 'An autobiography of A. P. J. Abdul Kalam.'],
 ];
 
-// Open Library serves covers by ISBN. `default=false` makes it return a 404 when it has no cover,
-// so the frontend's <BookCover> falls back to its generated cover instead of showing a blank 1px image.
 export const coverUrl = (isbn) => `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`;
 
 export const extraBooks = ROWS.map(([title, author, category, isbn, publicationYear, price, originalPrice, stock, description]) => ({

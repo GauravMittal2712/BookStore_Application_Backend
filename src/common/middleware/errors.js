@@ -39,7 +39,6 @@ export function errorHandler(err, req, res, next) {
 
   if (status >= 500) {
     req.log?.error({ err }, 'unhandled error');
-    // Development only: show the real reason in the browser so problems are easy to diagnose.
     if (env.NODE_ENV !== 'production' && !(err instanceof AppError)) {
       message = `Something went wrong (dev): ${err?.message || err}`;
     }

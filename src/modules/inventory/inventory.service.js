@@ -41,8 +41,6 @@ export async function list({ lowStock, q, page = 1, limit = 20 }) {
     meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
   };
 }
-
-// Atomic: a single findOneAndUpdate, so concurrent adjustments can never overwrite each other.
 export async function updateStock(bookId, { stock, adjustBy, reason }, actorId) {
   const filter = { _id: bookId, isDeleted: false };
   let update;
@@ -80,8 +78,6 @@ export async function updateStock(bookId, { stock, adjustBy, reason }, actorId) 
 
   return { bookId: previous.id, title: previous.title, before, stock: after };
 }
-
-// Conditional decrement prevents overselling under concurrency. Logged like every other change.
 export async function reserveStock(bookId, qty, session, actorId) {
   const book = await Book.findOneAndUpdate(
     { _id: bookId, isDeleted: false, stock: { $gte: qty } },

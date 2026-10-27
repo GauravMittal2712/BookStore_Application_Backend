@@ -2,8 +2,6 @@ import { redis, redisReady } from '../redis/redis.js';
 import { env } from '../../config/env.js';
 import { logger } from '../logger.js';
 
-// Every helper is fail-open: if Redis is down, callers just hit MongoDB.
-
 export async function cacheGet(key) {
   if (!redisReady()) return null;
   try {
@@ -33,8 +31,6 @@ export async function cacheDel(...keys) {
   }
 }
 
-// Cache-aside: return the cached value, or run loader() and store its result.
-// If loader() throws (e.g. 404) nothing is cached.
 export async function cacheRemember(key, ttl, loader) {
   const hit = await cacheGet(key);
   if (hit !== null) return hit;
@@ -43,7 +39,6 @@ export async function cacheRemember(key, ttl, loader) {
   return value;
 }
 
-// Version counters let us invalidate a whole family of keys (all list queries) with one INCR.
 export async function getVersion(name) {
   if (!redisReady()) return '0';
   try {

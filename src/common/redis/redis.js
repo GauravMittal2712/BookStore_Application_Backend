@@ -2,7 +2,7 @@ import Redis from 'ioredis';
 import { env } from '../../config/env.js';
 import { logger } from '../logger.js';
 
-// null when REDIS_URL is not set: every caller must treat Redis as optional.
+
 export const redis = env.REDIS_URL
   ? new Redis(env.REDIS_URL, {
       maxRetriesPerRequest: 1,
@@ -18,14 +18,11 @@ if (redis) {
     logger.info('Redis ready');
   });
   redis.on('error', (err) => {
-    if (reportedDown) return; // do not spam the log on every reconnect attempt
+    if (reportedDown) return;
     reportedDown = true;
     logger.warn({ err: err.message }, 'Redis unavailable - cache bypassed, will keep retrying');
   });
 }
-
-// Commands queue until the first connection (so start-up work like loading Lua scripts succeeds);
-// after that, while Redis is down, callers get an immediate error instead of waiting for a retry.
 let everReady = false;
 export function redisCommand(...args) {
   if (everReady && !redisReady()) return Promise.reject(new Error('Redis unavailable'));

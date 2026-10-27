@@ -1,8 +1,4 @@
-/**
- * Apply / sync all Mongoose indexes.
- * Run in production after deploy (autoIndex is disabled there):
- *   npm run ensure-indexes
- */
+
 import mongoose from 'mongoose';
 import { env } from '../src/config/env.js';
 import { logger } from '../src/common/logger.js';

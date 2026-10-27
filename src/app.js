@@ -78,7 +78,6 @@ export function createApp() {
     }
   });
 
-  // Interactive OpenAPI UI + raw spec
   app.get('/api/docs.json', (_req, res) => res.json(openApiDoc));
   app.use(
     '/api/docs',

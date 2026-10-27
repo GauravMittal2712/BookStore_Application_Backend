@@ -92,7 +92,7 @@ export async function placeOrder(userId, { addressId, paymentMethod = 'cod' }, i
       await cartService.clear(userId, session);
     });
   } catch (err) {
-    // two simultaneous submits with the same key: the loser gets the winner's order
+
     if (err.code === 11000 && idempotencyKey) {
       const hit = await replay();
       if (hit) return hit;

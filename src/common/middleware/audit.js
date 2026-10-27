@@ -3,7 +3,6 @@ import { logger } from '../logger.js';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-/** Fields that must never be stored in audit logs */
 const REDACT = new Set([
   'password',
   'currentPassword',
@@ -29,10 +28,6 @@ function summarizeBody(body) {
   return Object.keys(out).length ? out : undefined;
 }
 
-/**
- * Fire-and-forget audit logger for mutating requests.
- * Safe to mount globally: failures are logged and never affect the response.
- */
 export function auditMiddleware(req, res, next) {
   if (!MUTATING.has(req.method)) return next();
 

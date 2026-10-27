@@ -1,9 +1,5 @@
 import mongoose from 'mongoose';
 
-/**
- * Optional audit trail for mutating API calls (architecture §11).
- * Written asynchronously after the response so it never slows down the request path.
- */
 const auditLogSchema = new mongoose.Schema(
   {
     actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },

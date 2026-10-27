@@ -41,13 +41,9 @@ export function safeEqual(a = '', b = '') {
   const B = Buffer.from(String(b));
   return A.length === B.length && crypto.timingSafeEqual(A, B);
 }
-
-// Razorpay Checkout signs "<razorpay_order_id>|<razorpay_payment_id>" with the key secret.
 export function checkoutSignature(rzpOrderId, rzpPaymentId, secret = env.RAZORPAY_KEY_SECRET) {
   return hmac(secret, `${rzpOrderId}|${rzpPaymentId}`);
 }
-
-// Webhooks are signed over the raw request body with the webhook secret.
 export function webhookSignature(rawBody, secret = env.RAZORPAY_WEBHOOK_SECRET) {
   return hmac(secret, rawBody);
 }
@@ -60,8 +56,6 @@ async function ownedOnlineOrder(orderId, userId) {
   }
   return order;
 }
-
-/** Create (or reuse) the Razorpay order for one of the customer's unpaid orders. */
 export async function createPayment(orderId, userId) {
   const order = await ownedOnlineOrder(orderId, userId);
   if (order.paymentStatus === 'paid') throw new AppError(409, 'ALREADY_PAID', 'Order is already paid');
@@ -107,13 +101,11 @@ async function refund(order) {
   }
 }
 
-/** Called by the order service after a paid online order is cancelled. */
 export async function refundIfPaid(orderId) {
   const order = await Order.findById(orderId);
   if (order && order.paymentMethod === 'online' && order.paymentStatus === 'paid') await refund(order);
 }
 
-// Shared by the browser callback and the webhook, so whichever arrives first wins and the other is a no-op.
 async function settlePaid(rzpOrderId, rzpPaymentId, amount) {
   const order = await Order.findOne({ 'payment.razorpayOrderId': rzpOrderId });
   if (!order) throw new AppError(404, 'NOT_FOUND', 'Order not found');
@@ -131,12 +123,9 @@ async function settlePaid(rzpOrderId, rzpPaymentId, amount) {
     { new: true }
   );
   const result = updated || (await Order.findById(order._id));
-  // customer cancelled while the payment was in flight -> money must go back
   if (updated && updated.status === 'cancelled') await refund(updated);
   return result;
 }
-
-/** Browser callback: verify the Checkout signature, then mark the order paid. */
 export async function verifyPayment(userId, { razorpay_order_id, razorpay_payment_id, razorpay_signature }) {
   assertConfigured();
   const expected = checkoutSignature(razorpay_order_id, razorpay_payment_id);
@@ -148,7 +137,6 @@ export async function verifyPayment(userId, { razorpay_order_id, razorpay_paymen
   return settlePaid(razorpay_order_id, razorpay_payment_id);
 }
 
-/** Webhook: the source of truth when the customer closes the tab right after paying. */
 export async function handleWebhook(rawBody, signature) {
   if (!env.RAZORPAY_WEBHOOK_SECRET) {
     throw new AppError(503, 'PAYMENTS_UNAVAILABLE', 'Webhook secret is not configured');

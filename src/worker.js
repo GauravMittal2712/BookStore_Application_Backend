@@ -1,5 +1,3 @@
-// Background worker: consumes RabbitMQ events (emails, alerts). No HTTP server.
-//   npm run worker            or      docker compose up worker
 import mongoose from 'mongoose';
 import { env } from './config/env.js';
 import { logger } from './common/logger.js';
