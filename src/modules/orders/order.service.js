@@ -30,6 +30,10 @@ function toOrder(doc) {
       changedBy: h.changedBy?.toString?.() || h.changedBy,
       at: h.at,
     })),
+    // only present when the query populated the user (staff listings)
+    ...(doc.user && doc.user.name
+      ? { customer: { id: String(doc.user._id), name: doc.user.name, email: doc.user.email } }
+      : {}),
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -116,12 +120,14 @@ export async function list(actor, query) {
   }
   if (query.status) filter.status = query.status;
 
+  const finder = Order.find(filter)
+    .sort({ createdAt: -1 })
+    .skip((query.page - 1) * query.limit)
+    .limit(query.limit);
+  if (actor.role !== 'customer') finder.populate('user', 'name email');
+
   const [items, total] = await Promise.all([
-    Order.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((query.page - 1) * query.limit)
-      .limit(query.limit)
-      .lean(),
+    finder.lean(),
     Order.countDocuments(filter),
   ]);
 
@@ -137,7 +143,9 @@ export async function list(actor, query) {
 }
 
 export async function getById(orderId, actor) {
-  const order = await Order.findById(orderId).lean();
+  const finder = Order.findById(orderId);
+  if (actor.role !== 'customer') finder.populate('user', 'name email');
+  const order = await finder.lean();
   if (!order) throw new AppError(404, 'NOT_FOUND', 'Order not found');
 
   if (actor.role === 'customer' && order.user.toString() !== actor.id) {
